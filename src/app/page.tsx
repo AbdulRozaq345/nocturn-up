@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Play,
-  Pause, // <-- Tambahin ini
+  Pause,
   Music2,
   Search,
   Home as HomeIcon,
@@ -15,9 +15,16 @@ import {
   Trash2,
   RefreshCw,
   Download,
+  SkipBack,
+  SkipForward,
+  Sparkles,
+  ListMusic,
+  Activity,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  Disc3,
 } from "lucide-react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleRight, faCircleLeft } from "@fortawesome/free-solid-svg-icons";
 
 type Track = {
   id: number | string;
@@ -80,6 +87,7 @@ export default function Home() {
   const [downloadLog, setDownloadLog] = useState<
     Array<{ id: number; event: string; phase?: string; title?: string; ts: number }>
   >([]);
+  const [logCollapsed, setLogCollapsed] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const downloadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -521,46 +529,122 @@ export default function Home() {
     }
   }, [currentTrack]);
 
+  const downloadPercent =
+    downloadProgress && downloadProgress.total > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (downloadProgress.current / downloadProgress.total) * 100,
+          ),
+        )
+      : null;
+
   return (
-    <div className="flex h-screen bg-[#050505] text-[#e0e0e0] font-sans">
+    <div className="relative flex h-screen bg-[#050505] text-zinc-200 font-sans overflow-hidden">
+      {/* AMBIENT BACKGROUND ORBS */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-[#1DB954]/15 blur-[120px] ambient-orb"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -bottom-32 right-0 w-[420px] h-[420px] rounded-full bg-purple-600/10 blur-[120px] ambient-orb"
+        style={{ animationDelay: "-6s" }}
+      />
+
       {/* SIDEBAR */}
-      <aside className="w-64 bg-black border-r border-[#151515] p-6 flex flex-col gap-8 hidden lg:flex">
-        <h1 className="text-2xl font-black tracking-tighter text-[#1DB954] italic">
-          notcer.
-        </h1>
-        <nav className="flex flex-col gap-6 text-sm font-bold text-gray-400">
-          <div className="flex items-center gap-4 text-white cursor-pointer hover:text-[#1DB954] transition-all">
-            <HomeIcon size={22} /> Home
+      <aside className="relative z-10 w-72 bg-black/60 backdrop-blur-2xl border-r border-white/[0.05] p-6 flex-col gap-6 hidden lg:flex">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1DB954] to-[#0a6e30] flex items-center justify-center shadow-lg shadow-[#1DB954]/30">
+            <Disc3 size={22} className="text-black" strokeWidth={2.5} />
           </div>
-          <div className="flex items-center gap-4 hover:text-white transition-all cursor-pointer">
-            <Search size={22} /> Search
+          <div>
+            <h1 className="text-xl font-black tracking-tight text-white leading-none">
+              nocturn<span className="text-[#1DB954]">.</span>
+            </h1>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mt-1">
+              Music Vault
+            </p>
           </div>
-          <div className="flex items-center gap-4 hover:text-white transition-all cursor-pointer">
-            <Library size={22} /> Library
-          </div>
-          <div className="mt-4 pt-4 border-t border-[#151515] flex items-center gap-4 hover:text-white transition-all cursor-pointer">
-            <Heart size={22} /> Liked Songs
-          </div>
+        </div>
+
+        <nav className="flex flex-col gap-1 text-sm font-semibold mt-2">
+          {[
+            { icon: HomeIcon, label: "Home", active: true },
+            { icon: Search, label: "Search" },
+            { icon: Library, label: "Library" },
+          ].map(({ icon: Icon, label, active }) => (
+            <button
+              key={label}
+              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                active
+                  ? "bg-white/[0.04] text-white"
+                  : "text-zinc-400 hover:text-white hover:bg-white/[0.02]"
+              }`}
+            >
+              {active && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-[#1DB954]" />
+              )}
+              <Icon size={18} />
+              {label}
+            </button>
+          ))}
+          <div className="my-3 h-px bg-white/[0.05]" />
+          <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/[0.02] transition-all">
+            <Heart size={18} /> Liked Songs
+          </button>
+          <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/[0.02] transition-all">
+            <ListMusic size={18} /> Playlists
+          </button>
         </nav>
+
+        {/* Now playing mini card */}
+        {currentTrack && (
+          <div className="mt-auto p-4 rounded-2xl bg-gradient-to-br from-[#1DB954]/15 via-white/[0.03] to-transparent border border-[#1DB954]/20">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-end gap-[2px] h-3">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="eq-bar w-[3px] bg-[#1DB954] rounded-sm"
+                    style={{
+                      height: "100%",
+                      animationDelay: `${i * 0.15}s`,
+                      animationPlayState: isPlaying ? "running" : "paused",
+                    }}
+                  />
+                ))}
+              </div>
+              <p className="text-[10px] uppercase tracking-widest font-bold text-[#1DB954]">
+                {isPlaying ? "Now Playing" : "Paused"}
+              </p>
+            </div>
+            <p className="text-sm font-bold text-white truncate">
+              {currentTrack.trackTitle || currentTrack.title}
+            </p>
+            <p className="text-xs text-zinc-400 truncate">
+              {currentTrack.artistName || currentTrack.artist}
+            </p>
+          </div>
+        )}
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 overflow-y-auto bg-gradient-to-b from-[#1a1a1a] via-[#050505] to-[#050505] p-8 pb-32">
-        <div className="max-w-5xl mx-auto">
-          {/* GREETING SECTION */}
-          <header className="mb-10">
-            <h2 className="text-3xl font-black tracking-tight text-white mb-6">
-              Hallo, silahkan upload dan edit lagu Bosquu 🐈‍🤣
-            </h2>
-            <label className="w-48 h-48 bg-[#282828] shadow-2xl flex-shrink-0 flex items-center justify-center cursor-pointer overflow-hidden rounded-md relative group">
+      <main className="relative z-10 flex-1 overflow-y-auto scrollbar-thin bg-gradient-to-b from-[#1DB954]/[0.07] via-[#050505] to-[#050505] pb-32">
+        <div className="max-w-6xl mx-auto px-6 lg:px-10 pt-10">
+          {/* HERO HEADER */}
+          <header className="mb-10 flex flex-col md:flex-row gap-8 items-start md:items-end">
+            <label className="w-52 h-52 md:w-60 md:h-60 shrink-0 cursor-pointer overflow-hidden rounded-2xl relative group shadow-[0_20px_60px_-15px_rgba(29,185,84,0.5)] ring-1 ring-white/10">
               {playlistInfo.image ? (
                 <img
                   src={playlistInfo.image}
                   alt="Cover"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
                 />
               ) : (
-                <Music2 size={64} className="text-gray-600" />
+                <div className="w-full h-full bg-gradient-to-br from-[#1DB954]/30 via-[#0a6e30]/20 to-black flex items-center justify-center">
+                  <Music2 size={72} className="text-[#1DB954]/70" />
+                </div>
               )}
               <input
                 type="file"
@@ -568,14 +652,16 @@ export default function Home() {
                 onChange={handleImageUpload}
                 accept="image/*"
               />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <p className="text-xs font-bold text-white">Ganti Foto</p>
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity backdrop-blur-sm">
+                <Sparkles size={28} className="text-white" />
+                <p className="text-xs font-bold uppercase tracking-widest text-white">
+                  Ganti Cover
+                </p>
               </div>
             </label>
 
-            {/* FEATURED / QUICK ACCESS */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider">
+            <div className="flex flex-col gap-3 flex-1 min-w-0">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
                 Public Playlist
               </span>
               <input
@@ -584,76 +670,243 @@ export default function Home() {
                 onChange={(e) =>
                   setPlaylistInfo({ ...playlistInfo, name: e.target.value })
                 }
-                className="text-3xl font-black bg-transparent border-none outline-none focus:ring-0 p-0 tracking-tighter text-white"
+                className="text-4xl md:text-6xl font-black bg-transparent border-none outline-none focus:ring-0 p-0 tracking-tighter text-white leading-tight"
               />
-              <div className="flex items-center gap-2 text-sm font-bold mt-2">
-                <span className="text-[#1DB954] hover:underline cursor-pointer">
-                  notcer.
+              <div className="flex items-center gap-3 text-sm text-zinc-300 flex-wrap">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <div className="w-5 h-5 rounded-full bg-[#1DB954] flex items-center justify-center">
+                    <Music2 size={11} className="text-black" />
+                  </div>
+                  nocturn
                 </span>
-                <span className="text-gray-400">
-                  • {tracks.length} lagu, {calculateTotalPlaylistTime()}
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-400">
+                  {tracks.length} lagu
+                </span>
+                <span className="text-zinc-600">•</span>
+                <span className="text-zinc-400">
+                  {calculateTotalPlaylistTime()}
                 </span>
               </div>
             </div>
           </header>
 
-          {/* ALL TRACKS LIST */}
+          {/* QUICK ACTIONS BAR */}
           <section>
-            {/* ACTION BAR: Search, Download YT & Scan */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto] gap-3 mb-6">
+              {/* Search */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
                   handleSearch(searchQuery);
                 }}
-                className="flex items-center w-full max-w-md bg-[#282828]/60 rounded-full px-4 py-2 border border-[#4d4d4d]/30 focus-within:border-[#1DB954] transition-colors"
+                className="flex items-center bg-white/[0.03] hover:bg-white/[0.05] rounded-2xl px-4 py-3 border border-white/[0.06] focus-within:border-[#1DB954]/50 focus-within:bg-white/[0.05] transition-all"
               >
-                <Search size={18} className="text-gray-400" />
+                <Search size={18} className="text-zinc-400" />
                 <input
                   type="text"
-                  placeholder="Cari lagu atau artis..."
-                  className="bg-transparent border-none outline-none text-sm text-white w-full ml-2 focus:ring-0"
+                  placeholder="Cari lagu atau artis di library..."
+                  className="bg-transparent border-none outline-none text-sm text-white w-full ml-3 focus:ring-0 placeholder:text-zinc-500"
                   value={searchQuery}
-                  onChange={(e) =>
-                    handleSearch(e.target.value)
-                  } /* Realtime Search */
+                  onChange={(e) => handleSearch(e.target.value)}
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => handleSearch("")}
+                    className="text-zinc-500 hover:text-white text-xs px-2"
+                  >
+                    clear
+                  </button>
+                )}
               </form>
 
-              <div className="flex items-center gap-3 w-full md:w-auto">
-                <div className="flex items-center bg-[#282828]/60 rounded-full px-4 py-2 w-full border border-[#4d4d4d]/30 focus-within:border-[#1DB954] transition-colors">
-                  <input
-                    type="text"
-                    placeholder="Link YouTube..."
-                    className="bg-transparent border-none outline-none text-sm text-white w-full focus:ring-0"
-                    value={youtubeUrl}
-                    onChange={(e) => setYoutubeUrl(e.target.value)}
-                  />
-                  <button
-                    onClick={() => handleDownloadYoutube(youtubeUrl)}
-                    disabled={isLoading}
-                    className="text-[#1DB954] hover:text-white transition-colors ml-2 disabled:opacity-50"
-                  >
-                    {isLoading ? (
-                      <RefreshCw size={18} className="animate-spin" />
-                    ) : (
-                      <Download size={18} />
-                    )}
-                  </button>
-                </div>
+              {/* YouTube Add */}
+              <div className="flex items-center bg-gradient-to-r from-[#1DB954]/10 to-white/[0.03] rounded-2xl pl-4 pr-1 py-1 border border-[#1DB954]/20 focus-within:border-[#1DB954]/60 transition-all">
+                <Sparkles size={16} className="text-[#1DB954] mr-2 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Tempel URL YouTube / Playlist..."
+                  className="bg-transparent border-none outline-none text-sm text-white w-full md:w-72 py-2 focus:ring-0 placeholder:text-zinc-500"
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleDownloadYoutube(youtubeUrl);
+                  }}
+                />
                 <button
-                  onClick={handleScanFolder}
-                  disabled={isLoading}
-                  title="Sync Lagu Local"
-                  className="bg-[#282828] p-2.5 rounded-full border border-[#4d4d4d]/30 text-gray-400 hover:text-[#1DB954] transition disabled:opacity-50"
+                  onClick={() => handleDownloadYoutube(youtubeUrl)}
+                  disabled={isLoading || !youtubeUrl}
+                  className="bg-[#1DB954] hover:bg-[#1ed760] text-black font-bold text-xs px-4 py-2 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
                 >
-                  <RefreshCw
-                    size={18}
-                    className={isLoading ? "animate-spin" : ""}
-                  />
+                  {isLoading ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <Download size={14} />
+                  )}
+                  Add
                 </button>
               </div>
+
+              {/* Scan */}
+              <button
+                onClick={handleScanFolder}
+                disabled={isLoading}
+                title="Sync lagu lokal dari folder server"
+                className="flex items-center justify-center gap-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] rounded-2xl px-4 py-3 text-zinc-300 hover:text-white transition-all disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={16}
+                  className={isLoading ? "animate-spin" : ""}
+                />
+                <span className="text-sm font-semibold">Sync</span>
+              </button>
             </div>
+
+            {/* DOWNLOAD PROGRESS CARD */}
+            {isDownloading && (
+              <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#1DB954]/[0.08] via-white/[0.02] to-transparent border border-[#1DB954]/20 overflow-hidden">
+                {/* Header strip */}
+                <div className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.05] bg-black/30">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-[#1DB954] opacity-75 animate-ping" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#1DB954]" />
+                  </span>
+                  <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-white">
+                    Streaming dari Backend
+                  </h4>
+                  <div className="ml-auto flex items-center gap-3 text-xs text-zinc-400 font-mono">
+                    <span className="flex items-center gap-1">
+                      <Clock size={11} />
+                      {formatTime(downloadElapsed)}
+                    </span>
+                    {downloadProgress && downloadProgress.total > 0 && (
+                      <>
+                        <span className="text-zinc-600">·</span>
+                        <span>
+                          <span className="text-white font-bold">
+                            {downloadProgress.current}
+                          </span>
+                          <span className="text-zinc-500">
+                            /{downloadProgress.total}
+                          </span>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="px-5 py-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    {/* Phase chip */}
+                    {downloadProgress?.phase && (
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+                          PHASE_COLORS[downloadProgress.phase] ||
+                          "text-zinc-300"
+                        } ${
+                          downloadProgress.phase === "failed"
+                            ? "border-red-400/30 bg-red-400/10"
+                            : downloadProgress.phase === "skipped"
+                              ? "border-zinc-500/30 bg-zinc-500/10"
+                              : downloadProgress.phase === "completed"
+                                ? "border-[#1DB954]/30 bg-[#1DB954]/10"
+                                : "border-current/30 bg-white/[0.03]"
+                        }`}
+                      >
+                        {PHASE_LABELS[downloadProgress.phase] ||
+                          downloadProgress.phase}
+                      </span>
+                    )}
+                    <p className="text-sm text-white truncate font-medium flex-1">
+                      {downloadProgress?.title || "Memulai..."}
+                    </p>
+                    {downloadPercent !== null && (
+                      <span className="text-sm font-bold text-[#1DB954] tabular-nums">
+                        {downloadPercent}%
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-2 w-full bg-white/[0.05] rounded-full overflow-hidden relative">
+                    {downloadPercent !== null ? (
+                      <div
+                        className="h-full bg-gradient-to-r from-[#1DB954] via-[#1ed760] to-[#1DB954] rounded-full transition-all duration-300 ease-out shadow-[0_0_12px_rgba(29,185,84,0.6)]"
+                        style={{ width: `${downloadPercent}%` }}
+                      />
+                    ) : (
+                      <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-[#1DB954] to-transparent animate-pulse rounded-full" />
+                    )}
+                  </div>
+
+                  {/* Activity log */}
+                  {downloadLog.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-white/[0.05]">
+                      <button
+                        onClick={() => setLogCollapsed((v) => !v)}
+                        className="w-full flex items-center justify-between text-[10px] uppercase tracking-widest font-bold text-zinc-500 hover:text-zinc-300 transition"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Activity size={11} />
+                          Activity Log
+                          <span className="text-zinc-600 normal-case">
+                            ({downloadLog.length})
+                          </span>
+                        </span>
+                        {logCollapsed ? (
+                          <ChevronDown size={14} />
+                        ) : (
+                          <ChevronUp size={14} />
+                        )}
+                      </button>
+                      {!logCollapsed && (
+                        <div className="mt-2 max-h-36 overflow-y-auto scrollbar-thin font-mono text-[10px] flex flex-col-reverse gap-1 pr-1">
+                          {[...downloadLog].reverse().map((entry) => {
+                            const eventColor =
+                              entry.event === "progress"
+                                ? PHASE_COLORS[entry.phase || ""] ||
+                                  "text-zinc-300"
+                                : entry.event === "done"
+                                  ? "text-[#1DB954]"
+                                  : entry.event === "error"
+                                    ? "text-red-400"
+                                    : entry.event === "ping"
+                                      ? "text-zinc-600"
+                                      : "text-zinc-400";
+                            return (
+                              <div
+                                key={entry.id}
+                                className="flex gap-2 items-baseline px-2 py-1 rounded hover:bg-white/[0.02]"
+                              >
+                                <span className="text-zinc-600 shrink-0 tabular-nums">
+                                  {new Date(entry.ts).toLocaleTimeString(
+                                    "id-ID",
+                                    { hour12: false },
+                                  )}
+                                </span>
+                                <span
+                                  className={`${eventColor} font-bold shrink-0 uppercase`}
+                                >
+                                  {entry.event}
+                                  {entry.phase ? `:${entry.phase}` : ""}
+                                </span>
+                                {entry.title && (
+                                  <span className="text-zinc-400 truncate">
+                                    {entry.title}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {isDownloading && (
               <div className="mb-6 p-4 bg-[#121212]/60 rounded-xl border border-[#1DB954]/30">
@@ -760,79 +1013,154 @@ export default function Home() {
               </div>
             )}
 
-            <div className="flex items-center justify-between mb-4 px-2">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Clock size={20} /> Your Music Library
-              </h3>
-              <p className="text-xs text-gray-500 font-mono uppercase tracking-widest">
-                {tracks.length} songs found
+            {/* LIBRARY HEADER */}
+            <div className="flex items-center justify-between mb-4 px-1">
+              <div className="flex items-center gap-3">
+                <h3 className="text-2xl font-black tracking-tight text-white">
+                  Library
+                </h3>
+                {isFetchingTracks && (
+                  <RefreshCw size={14} className="text-zinc-500 animate-spin" />
+                )}
+              </div>
+              <p className="text-xs text-zinc-500 font-mono uppercase tracking-widest">
+                {tracks.length} tracks
               </p>
             </div>
 
-            <div className="bg-[#121212]/30 rounded-xl border border-[#1a1a1a] overflow-hidden">
-              <div className="grid grid-cols-[40px_1fr_120px] gap-4 p-4 border-b border-[#1a1a1a] text-xs font-bold text-gray-500 uppercase tracking-widest">
+            {/* LIBRARY TABLE */}
+            <div className="rounded-2xl bg-white/[0.02] border border-white/[0.05] overflow-hidden backdrop-blur-sm">
+              <div className="grid grid-cols-[48px_1fr_80px_60px] md:grid-cols-[48px_1fr_120px_80px_60px] gap-4 px-5 py-3 border-b border-white/[0.05] text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] bg-black/20">
                 <p className="text-center">#</p>
-                <p>Title / Artist</p>
-                <p className="text-right">Action</p>
+                <p>Title</p>
+                <p className="hidden md:block">Artist</p>
+                <p className="text-right">
+                  <Clock size={12} className="inline" />
+                </p>
+                <p className="text-right">·</p>
               </div>
 
-              {isFetchingTracks && (
-                <div className="p-8 text-center text-sm text-gray-400">
+              {isFetchingTracks && tracks.length === 0 && (
+                <div className="p-12 text-center text-sm text-zinc-400 flex flex-col items-center gap-3">
+                  <RefreshCw size={20} className="animate-spin text-[#1DB954]" />
                   Mengambil daftar musik...
                 </div>
               )}
 
               {!isFetchingTracks && fetchError && (
-                <div className="p-8 text-center text-sm text-red-400">
-                  {fetchError}
+                <div className="p-12 text-center text-sm flex flex-col items-center gap-2">
+                  <AlertTriangle size={24} className="text-red-400" />
+                  <p className="text-red-400 font-semibold">{fetchError}</p>
+                  <button
+                    onClick={fetchTracks}
+                    className="mt-2 text-xs text-[#1DB954] hover:text-[#1ed760] font-bold uppercase tracking-widest"
+                  >
+                    Coba lagi
+                  </button>
                 </div>
               )}
 
               {!isFetchingTracks && !fetchError && tracks.length === 0 && (
-                <div className="p-8 text-center text-sm text-gray-400">
-                  Musik belum ada. Coba klik tombol sync atau tambah dari
-                  YouTube.
+                <div className="p-12 text-center flex flex-col items-center gap-3">
+                  <div className="w-16 h-16 rounded-full bg-white/[0.03] flex items-center justify-center">
+                    <ListMusic size={28} className="text-zinc-500" />
+                  </div>
+                  <p className="text-sm text-zinc-300 font-semibold">
+                    Library kosong
+                  </p>
+                  <p className="text-xs text-zinc-500 max-w-xs">
+                    Tempel link YouTube di atas atau klik <b>Sync</b> untuk
+                    scan folder server.
+                  </p>
                 </div>
               )}
 
               {!isFetchingTracks &&
                 !fetchError &&
-                tracks.map((track, index) => (
-                  <div
-                    key={track.id}
-                    onClick={() => setCurrentTrack(track)}
-                    className={`grid grid-cols-[40px_1fr_120px] gap-4 p-4 items-center transition-all cursor-pointer border-b border-[#151515]/50 group 
-  ${currentTrack?.id === track.id ? "bg-[#1DB954]/10" : "hover:bg-white/5"}`}
-                  >
-                    <span
-                      className={`text-center text-sm font-mono ${currentTrack?.id === track.id ? "text-[#1DB954]" : "text-gray-500"}`}
+                tracks.map((track, index) => {
+                  const isActive = currentTrack?.id === track.id;
+                  const trackDuration =
+                    track.durationSeconds || track.duration || 0;
+                  return (
+                    <div
+                      key={track.id}
+                      onClick={() => setCurrentTrack(track)}
+                      className={`grid grid-cols-[48px_1fr_80px_60px] md:grid-cols-[48px_1fr_120px_80px_60px] gap-4 px-5 py-3 items-center transition-colors cursor-pointer border-b border-white/[0.03] last:border-b-0 group ${
+                        isActive
+                          ? "bg-[#1DB954]/[0.08]"
+                          : "hover:bg-white/[0.03]"
+                      }`}
                     >
-                      {index + 1}
-                    </span>
-                    <div className="overflow-hidden">
-                      <p
-                        className={`text-sm font-bold truncate ${currentTrack?.id === track.id ? "text-[#1DB954]" : "text-white"}`}
-                      >
-                        {track.trackTitle || track.title}
-                      </p>
-                      <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
+                      {/* Index / Playing indicator */}
+                      <div className="flex items-center justify-center">
+                        {isActive && isPlaying ? (
+                          <div className="flex items-end gap-[2px] h-4">
+                            {[0, 1, 2].map((i) => (
+                              <span
+                                key={i}
+                                className="eq-bar w-[3px] bg-[#1DB954] rounded-sm"
+                                style={{
+                                  height: "100%",
+                                  animationDelay: `${i * 0.15}s`,
+                                }}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <span
+                              className={`text-sm font-mono group-hover:hidden ${
+                                isActive ? "text-[#1DB954]" : "text-zinc-500"
+                              }`}
+                            >
+                              {index + 1}
+                            </span>
+                            <Play
+                              size={14}
+                              fill="currentColor"
+                              className="hidden group-hover:block text-white"
+                            />
+                          </>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <div className="overflow-hidden min-w-0">
+                        <p
+                          className={`text-sm font-semibold truncate ${
+                            isActive ? "text-[#1DB954]" : "text-white"
+                          }`}
+                        >
+                          {track.trackTitle || track.title}
+                        </p>
+                        <p className="text-xs text-zinc-500 truncate md:hidden">
+                          {track.artistName || track.artist}
+                        </p>
+                      </div>
+
+                      {/* Artist (md+) */}
+                      <p className="hidden md:block text-xs text-zinc-400 truncate font-medium">
                         {track.artistName || track.artist}
                       </p>
+
+                      {/* Duration */}
+                      <p className="text-xs text-zinc-500 text-right font-mono tabular-nums">
+                        {trackDuration > 0 ? formatTime(trackDuration) : "—"}
+                      </p>
+
+                      {/* Actions */}
+                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => handleDeleteTrack(e, track.id)}
+                          title="Hapus lagu"
+                          className="p-2 rounded-lg text-zinc-400 hover:bg-red-500/15 hover:text-red-400 transition-all"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="text-right opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end gap-3 z-10">
-                      <button className="bg-[#1DB954] text-black p-2 rounded-full hover:scale-110 transition-transform">
-                        <Play size={14} fill="currentColor" />
-                      </button>
-                      <button
-                        onClick={(e) => handleDeleteTrack(e, track.id)}
-                        title="Hapus Lagu"
-                        className="bg-red-600/10 text-red-500 p-2 rounded-full hover:bg-red-600 hover:text-white transition-all"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           </section>
         </div>
@@ -840,117 +1168,111 @@ export default function Home() {
 
       {/* PLAYER BAR */}
       {currentTrack && (
-        <footer className="fixed bottom-0 left-0 right-0 h-24 bg-black border-t border-[#121212] px-4 flex items-center justify-between z-50">
-          {/* INFO KIRI */}
-          <div className="flex items-center gap-4 w-[30%]">
-            <div className="w-14 h-14 bg-[#282828] rounded flex items-center justify-center">
-              <Music2 size={24} className="text-gray-600" />
+        <footer className="fixed bottom-0 left-0 right-0 z-50 px-3 pb-3">
+          <div className="max-w-[1400px] mx-auto h-[88px] bg-black/80 backdrop-blur-2xl border border-white/[0.06] rounded-2xl px-4 flex items-center gap-4 shadow-2xl shadow-black/50">
+            {/* INFO LEFT */}
+            <div className="flex items-center gap-3 w-[28%] min-w-0">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1DB954]/30 to-[#0a6e30]/20 flex items-center justify-center shrink-0 ring-1 ring-white/[0.06]">
+                <Music2 size={22} className="text-[#1DB954]" />
+              </div>
+              <div className="truncate min-w-0">
+                <p className="text-sm font-bold text-white truncate">
+                  {currentTrack.trackTitle || currentTrack.title}
+                </p>
+                <p className="text-xs text-zinc-400 truncate">
+                  {currentTrack.artistName || currentTrack.artist}
+                </p>
+              </div>
             </div>
-            <div className="truncate">
-              <p className="text-sm font-bold truncate">
-                {currentTrack.trackTitle || currentTrack.title}
-              </p>
-              <p className="text-xs text-gray-400">
-                {currentTrack.artistName || currentTrack.artist}
-              </p>
+
+            {/* CONTROLS CENTER */}
+            <div className="flex flex-col items-center justify-center flex-1 gap-1.5">
+              <div className="flex items-center gap-2 text-zinc-300">
+                <button
+                  onClick={playPrevious}
+                  className="p-2 rounded-full hover:bg-white/[0.06] hover:text-white transition active:scale-90"
+                  title="Lagu sebelumnya"
+                >
+                  <SkipBack size={18} fill="currentColor" />
+                </button>
+
+                <button
+                  onClick={togglePlay}
+                  className="bg-white text-black w-10 h-10 rounded-full flex items-center justify-center hover:scale-105 transition active:scale-95 shadow-lg"
+                >
+                  {isPlaying ? (
+                    <Pause size={18} fill="black" />
+                  ) : (
+                    <Play size={18} fill="black" className="translate-x-[1px]" />
+                  )}
+                </button>
+
+                <button
+                  onClick={playNext}
+                  className="p-2 rounded-full hover:bg-white/[0.06] hover:text-white transition active:scale-90"
+                  title="Lagu selanjutnya"
+                >
+                  <SkipForward size={18} fill="currentColor" />
+                </button>
+              </div>
+
+              {/* Seek bar */}
+              <div className="flex items-center gap-2 w-full max-w-xl group">
+                <span className="text-[10px] text-zinc-500 font-mono tabular-nums w-10 text-right">
+                  {formatTime(currentTime)}
+                </span>
+                <div
+                  onClick={handleSeek}
+                  className="h-1 flex-1 bg-white/[0.08] rounded-full relative cursor-pointer hover:h-1.5 transition-all"
+                >
+                  <div
+                    className="absolute top-0 left-0 h-full bg-white group-hover:bg-[#1DB954] transition-colors rounded-full"
+                    style={{ width: `${progress}%` }}
+                  />
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                    style={{ left: `${progress}%`, marginLeft: "-6px" }}
+                  />
+                </div>
+                <span className="text-[10px] text-zinc-500 font-mono tabular-nums w-10">
+                  {formatTime(duration)}
+                </span>
+              </div>
             </div>
-          </div>
 
-          {/* CONTROLS TENGAH */}
-          <div className="flex flex-col items-center w-[40%] gap-2">
-            <div className="flex items-center gap-6 text-gray-400">
-              {/* Button Previous */}
+            {/* RIGHT: Volume */}
+            <div className="w-[28%] flex justify-end items-center gap-3 text-zinc-300">
               <button
-                onClick={playPrevious}
-                className="hover:text-white transition-colors p-1"
+                onClick={toggleMute}
+                className="p-2 rounded-full hover:bg-white/[0.06] hover:text-white transition"
+                title={isMuted ? "Unmute" : "Mute"}
               >
-                <FontAwesomeIcon
-                  icon={faCircleLeft}
-                  style={{ color: "rgb(255, 255, 255)" }}
-                  size="2xl"
-                />
-              </button>
-
-              {/* Button Play/Pause */}
-              <button
-                onClick={togglePlay}
-                className="bg-white text-black p-2.5 rounded-full hover:scale-105 transition active:scale-95"
-              >
-                {isPlaying ? (
-                  <Pause size={24} fill="black" />
+                {isMuted || volume === 0 ? (
+                  <VolumeX size={18} />
                 ) : (
-                  <Play size={24} fill="black" />
+                  <Volume2 size={18} />
                 )}
               </button>
 
-              {/* Button Next */}
-              <button
-                onClick={playNext}
-                className="hover:text-white transition-colors p-1"
-              >
-                <FontAwesomeIcon
-                  icon={faCircleRight}
-                  style={{ color: "rgb(255, 255, 255)" }}
-                  size="2xl"
-                />
-              </button>
-            </div>
-
-            {/* PROGRESS BAR JALAN BENERAN */}
-            <div className="flex items-center gap-2 w-full max-w-md group">
-              <span className="text-[10px] text-gray-400">
-                {formatTime(currentTime)}
-              </span>
-              <div
-                onClick={handleSeek}
-                className="h-1 flex-1 bg-[#4d4d4d] rounded-full relative group cursor-pointer"
-              >
+              <div className="relative w-28 h-1 bg-white/[0.08] rounded-full overflow-hidden group hover:h-1.5 transition-all">
                 <div
-                  className="absolute top-0 left-0 h-full bg-[#1DB954] group-hover:bg-[#1ed760] transition-all"
-                  style={{ width: `${progress}%` }}
+                  className="absolute top-0 left-0 h-full bg-white group-hover:bg-[#1DB954] transition-colors rounded-full"
+                  style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
                 />
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ left: `${progress}%`, marginLeft: "-6px" }}
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={isMuted ? 0 : volume}
+                  onChange={handleVolumeChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
               </div>
-              <span className="text-[10px] text-gray-400">
-                {formatTime(duration)}
-              </span>
             </div>
           </div>
 
-          <div className="w-[30%] flex justify-end items-center gap-3 text-gray-400 group">
-            <button
-              onClick={toggleMute}
-              className="hover:text-white transition-colors"
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX size={18} />
-              ) : (
-                <Volume2 size={18} />
-              )}
-            </button>
-
-            <div className="relative w-24 h-1 bg-[#4d4d4d] rounded-full overflow-hidden">
-              {/* Progress Bar Hijau (Visual) */}
-              <div
-                className="absolute top-0 left-0 h-full bg-[#1DB954] group-hover:bg-[#1ed760] transition-all"
-                style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
-              />
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={isMuted ? 0 : volume}
-                onChange={handleVolumeChange}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              />
-            </div>
-          </div>
-
-          {/* AUDIO ELEMENT DENGAN REF */}
+          {/* AUDIO ELEMENT */}
           <audio
             ref={audioRef}
             key={currentTrack.id}
