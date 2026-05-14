@@ -73,7 +73,7 @@ export default function Home() {
   const [isFetchingTracks, setIsFetchingTracks] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [playlistInfo, setPlaylistInfo] = useState({
-    name: "Upload & Manage lagu untuk Nocturn",
+    
     image: null as string | null,
   });
   // Fitur Tambahan (Search, Download, dll)
@@ -664,14 +664,9 @@ export default function Home() {
               <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">
                 Public Playlist
               </span>
-              <input
-                type="text"
-                value={playlistInfo.name}
-                onChange={(e) =>
-                  setPlaylistInfo({ ...playlistInfo, name: e.target.value })
-                }
-                className="text-4xl md:text-6xl font-black bg-transparent border-none outline-none focus:ring-0 p-0 tracking-tighter text-white leading-tight"
-              />
+              <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-white leading-tight">
+                Nocturn Vault
+              </h2>
               <div className="flex items-center gap-3 text-sm text-zinc-300 flex-wrap">
                 <span className="flex items-center gap-1.5 font-semibold">
                   <div className="w-5 h-5 rounded-full bg-[#1DB954] flex items-center justify-center">
