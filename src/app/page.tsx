@@ -24,6 +24,10 @@ import {
   ChevronUp,
   AlertTriangle,
   Disc3,
+  ImagePlus,
+  X,
+  Link,
+  Upload,
 } from "lucide-react";
 
 type Track = {
@@ -89,6 +93,12 @@ export default function Home() {
     Array<{ id: number; event: string; phase?: string; title?: string; ts: number }>
   >([]);
   const [logCollapsed, setLogCollapsed] = useState(false);
+  const [coverModal, setCoverModal] = useState<{ open: boolean; track: Track | null }>({ open: false, track: null });
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverFilePreview, setCoverFilePreview] = useState<string | null>(null);
+  const [coverUrlInput, setCoverUrlInput] = useState("");
+  const [isUpdatingCover, setIsUpdatingCover] = useState(false);
+  const coverFileInputRef = useRef<HTMLInputElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const downloadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -457,6 +467,78 @@ export default function Home() {
     } catch (err) {
       console.error(err);
       alert("Error: gagal menghubungi server");
+    }
+  };
+
+  const openCoverModal = (e: React.MouseEvent, track: Track) => {
+    e.stopPropagation();
+    setCoverModal({ open: true, track });
+    setCoverFile(null);
+    setCoverFilePreview(null);
+    setCoverUrlInput("");
+  };
+
+  const closeCoverModal = () => {
+    setCoverModal({ open: false, track: null });
+    setCoverFile(null);
+    setCoverFilePreview(null);
+    setCoverUrlInput("");
+  };
+
+  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCoverFile(file);
+    setCoverUrlInput("");
+    const reader = new FileReader();
+    reader.onloadend = () => setCoverFilePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpdateCover = async () => {
+    if (!coverModal.track) return;
+    if (!coverFile && !coverUrlInput.trim()) return;
+
+    const id = coverModal.track.id;
+    setIsUpdatingCover(true);
+
+    try {
+      let res: Response;
+
+      if (coverFile) {
+        const formData = new FormData();
+        formData.append("cover", coverFile);
+        res = await fetch(`${API_BASE}/api/tracks/${id}/cover`, {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        res = await fetch(`${API_BASE}/api/tracks/${id}/cover`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cover_url: coverUrlInput.trim() }),
+        });
+      }
+
+      const json = await res.json();
+      if (res.ok && json.status === "success") {
+        const newCover = json.cover as string;
+        setTracks((prev) =>
+          prev.map((t) => (t.id === id ? { ...t, playlistCover: newCover } : t)),
+        );
+        if (currentTrack?.id === id) {
+          setCurrentTrack((prev) =>
+            prev ? { ...prev, playlistCover: newCover } : prev,
+          );
+        }
+        closeCoverModal();
+      } else {
+        alert(json.message || "Gagal update cover");
+      }
+    } catch {
+      alert("Error: gagal menghubungi server");
+    } finally {
+      setIsUpdatingCover(false);
     }
   };
 
@@ -1049,10 +1131,9 @@ export default function Home() {
 
             {/* LIBRARY TABLE */}
             <div className="rounded-2xl bg-white/[0.02] border border-white/[0.05] overflow-hidden backdrop-blur-sm">
-              <div className="grid grid-cols-[48px_1fr_80px_60px] md:grid-cols-[48px_1fr_120px_80px_60px] gap-4 px-5 py-3 border-b border-white/[0.05] text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] bg-black/20">
+              <div className="grid grid-cols-[48px_1fr_80px_60px] gap-4 px-5 py-3 border-b border-white/[0.05] text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] bg-black/20">
                 <p className="text-center">#</p>
                 <p>Title</p>
-                <p className="hidden md:block">Artist</p>
                 <p className="text-right">
                   <Clock size={12} className="inline" />
                 </p>
@@ -1104,7 +1185,7 @@ export default function Home() {
                     <div
                       key={track.id}
                       onClick={() => setCurrentTrack(track)}
-                      className={`grid grid-cols-[48px_1fr_80px_60px] md:grid-cols-[48px_1fr_120px_80px_60px] gap-4 px-5 py-3 items-center transition-colors cursor-pointer border-b border-white/[0.03] last:border-b-0 group ${
+                      className={`grid grid-cols-[48px_1fr_80px_60px] gap-4 px-5 py-3 items-center transition-colors cursor-pointer border-b border-white/[0.03] last:border-b-0 group ${
                         isActive
                           ? "bg-[#1DB954]/[0.08]"
                           : "hover:bg-white/[0.03]"
@@ -1166,16 +1247,11 @@ export default function Home() {
                           >
                             {track.trackTitle || track.title}
                           </p>
-                          <p className="text-xs text-zinc-500 truncate md:hidden">
+                          <p className="text-xs text-zinc-400 truncate mt-0.5">
                             {track.artistName || track.artist}
                           </p>
                         </div>
                       </div>
-
-                      {/* Artist (md+) */}
-                      <p className="hidden md:block text-xs text-zinc-400 truncate font-medium">
-                        {track.artistName || track.artist}
-                      </p>
 
                       {/* Duration */}
                       <p className="text-xs text-zinc-500 text-right font-mono tabular-nums">
@@ -1184,6 +1260,13 @@ export default function Home() {
 
                       {/* Actions */}
                       <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => openCoverModal(e, track)}
+                          title="Ganti cover"
+                          className="p-2 rounded-lg text-zinc-400 hover:bg-[#1DB954]/15 hover:text-[#1DB954] transition-all"
+                        >
+                          <ImagePlus size={14} />
+                        </button>
                         <button
                           onClick={(e) => handleDeleteTrack(e, track.id)}
                           title="Hapus lagu"
@@ -1327,6 +1410,118 @@ export default function Home() {
             autoPlay
           />
         </footer>
+      )}
+
+      {/* COVER UPDATE MODAL */}
+      {coverModal.open && coverModal.track && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={closeCoverModal}
+        >
+          <div
+            className="w-full max-w-sm bg-[#111] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2">
+                <ImagePlus size={16} className="text-[#1DB954]" />
+                <h3 className="text-sm font-bold text-white">Ganti Cover</h3>
+              </div>
+              <button
+                onClick={closeCoverModal}
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/[0.06] transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 flex flex-col gap-4">
+              {/* Track name */}
+              <p className="text-xs text-zinc-400 truncate">
+                <span className="text-zinc-500">Lagu: </span>
+                {coverModal.track.trackTitle || coverModal.track.title}
+              </p>
+
+              {/* Preview + current cover */}
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 rounded-xl overflow-hidden shrink-0 ring-1 ring-white/[0.08] bg-zinc-900">
+                  {(coverFilePreview || getCoverUrl(coverModal.track.playlistCover)) ? (
+                    <img
+                      src={coverFilePreview || getCoverUrl(coverModal.track.playlistCover)!}
+                      alt="preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Music2 size={24} className="text-zinc-600" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 flex flex-col gap-2">
+                  {coverFilePreview && (
+                    <p className="text-[10px] text-[#1DB954] font-semibold truncate">
+                      {coverFile?.name}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => coverFileInputRef.current?.click()}
+                    className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-zinc-300 hover:text-white transition"
+                  >
+                    <Upload size={13} />
+                    Upload file
+                  </button>
+                  <input
+                    ref={coverFileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={handleCoverFileChange}
+                  />
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/[0.06]" />
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest">atau</span>
+                <div className="flex-1 h-px bg-white/[0.06]" />
+              </div>
+
+              {/* URL input */}
+              <div className="flex items-center gap-2 bg-white/[0.03] rounded-xl px-3 py-2.5 border border-white/[0.06] focus-within:border-[#1DB954]/40 transition">
+                <Link size={14} className="text-zinc-500 shrink-0" />
+                <input
+                  type="url"
+                  placeholder="https://i.ytimg.com/..."
+                  value={coverUrlInput}
+                  onChange={(e) => {
+                    setCoverUrlInput(e.target.value);
+                    if (e.target.value) {
+                      setCoverFile(null);
+                      setCoverFilePreview(null);
+                    }
+                  }}
+                  className="bg-transparent text-sm text-white outline-none w-full placeholder:text-zinc-600"
+                />
+              </div>
+
+              {/* Submit */}
+              <button
+                onClick={handleUpdateCover}
+                disabled={isUpdatingCover || (!coverFile && !coverUrlInput.trim())}
+                className="w-full py-2.5 rounded-xl bg-[#1DB954] hover:bg-[#1ed760] text-black text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isUpdatingCover ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <ImagePlus size={14} />
+                )}
+                {isUpdatingCover ? "Menyimpan..." : "Simpan Cover"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
