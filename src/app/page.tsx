@@ -36,6 +36,7 @@ type Track = {
   file_name?: string;
   durationSeconds?: number;
   duration?: number;
+  playlistCover?: string | null;
 };
 
 type TracksApiResponse = {
@@ -146,6 +147,12 @@ export default function Home() {
   const getTrackFileName = (track: Track | null) => {
     const rawName = track?.fileName || track?.file_name || "";
     return rawName ? encodeURIComponent(rawName) : "";
+  };
+
+  const getCoverUrl = (cover: string | null | undefined): string | null => {
+    if (!cover) return null;
+    if (cover.startsWith("http://") || cover.startsWith("https://")) return cover;
+    return `${API_BASE}/covers/${cover}`;
   };
 
   const isPlaylistUrl = (url: string): boolean => {
@@ -619,12 +626,29 @@ export default function Home() {
                 {isPlaying ? "Now Playing" : "Paused"}
               </p>
             </div>
-            <p className="text-sm font-bold text-white truncate">
-              {currentTrack.trackTitle || currentTrack.title}
-            </p>
-            <p className="text-xs text-zinc-400 truncate">
-              {currentTrack.artistName || currentTrack.artist}
-            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg shrink-0 overflow-hidden ring-1 ring-white/[0.06]">
+                {getCoverUrl(currentTrack.playlistCover) ? (
+                  <img
+                    src={getCoverUrl(currentTrack.playlistCover)!}
+                    alt="cover"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#1DB954]/20 to-black flex items-center justify-center">
+                    <Music2 size={14} className="text-[#1DB954]/60" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-white truncate">
+                  {currentTrack.trackTitle || currentTrack.title}
+                </p>
+                <p className="text-xs text-zinc-400 truncate">
+                  {currentTrack.artistName || currentTrack.artist}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </aside>
@@ -635,9 +659,9 @@ export default function Home() {
           {/* HERO HEADER */}
           <header className="mb-10 flex flex-col md:flex-row gap-8 items-start md:items-end">
             <label className="w-52 h-52 md:w-60 md:h-60 shrink-0 cursor-pointer overflow-hidden rounded-2xl relative group shadow-[0_20px_60px_-15px_rgba(29,185,84,0.5)] ring-1 ring-white/10">
-              {playlistInfo.image ? (
+              {(playlistInfo.image || getCoverUrl(currentTrack?.playlistCover)) ? (
                 <img
-                  src={playlistInfo.image}
+                  src={playlistInfo.image || getCoverUrl(currentTrack?.playlistCover) || ""}
                   alt="Cover"
                   className="w-full h-full object-cover transition-transform group-hover:scale-105"
                 />
@@ -1120,17 +1144,32 @@ export default function Home() {
                       </div>
 
                       {/* Title */}
-                      <div className="overflow-hidden min-w-0">
-                        <p
-                          className={`text-sm font-semibold truncate ${
-                            isActive ? "text-[#1DB954]" : "text-white"
-                          }`}
-                        >
-                          {track.trackTitle || track.title}
-                        </p>
-                        <p className="text-xs text-zinc-500 truncate md:hidden">
-                          {track.artistName || track.artist}
-                        </p>
+                      <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+                        <div className="w-10 h-10 rounded-lg shrink-0 overflow-hidden ring-1 ring-white/[0.06]">
+                          {getCoverUrl(track.playlistCover) ? (
+                            <img
+                              src={getCoverUrl(track.playlistCover)!}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-[#1DB954]/20 to-black flex items-center justify-center">
+                              <Music2 size={14} className="text-[#1DB954]/50" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="overflow-hidden min-w-0">
+                          <p
+                            className={`text-sm font-semibold truncate ${
+                              isActive ? "text-[#1DB954]" : "text-white"
+                            }`}
+                          >
+                            {track.trackTitle || track.title}
+                          </p>
+                          <p className="text-xs text-zinc-500 truncate md:hidden">
+                            {track.artistName || track.artist}
+                          </p>
+                        </div>
                       </div>
 
                       {/* Artist (md+) */}
@@ -1167,8 +1206,18 @@ export default function Home() {
           <div className="max-w-[1400px] mx-auto h-[88px] bg-black/80 backdrop-blur-2xl border border-white/[0.06] rounded-2xl px-4 flex items-center gap-4 shadow-2xl shadow-black/50">
             {/* INFO LEFT */}
             <div className="flex items-center gap-3 w-[28%] min-w-0">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[#1DB954]/30 to-[#0a6e30]/20 flex items-center justify-center shrink-0 ring-1 ring-white/[0.06]">
-                <Music2 size={22} className="text-[#1DB954]" />
+              <div className="w-14 h-14 rounded-xl shrink-0 overflow-hidden ring-1 ring-white/[0.06]">
+                {getCoverUrl(currentTrack.playlistCover) ? (
+                  <img
+                    src={getCoverUrl(currentTrack.playlistCover)!}
+                    alt="cover"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#1DB954]/30 to-[#0a6e30]/20 flex items-center justify-center">
+                    <Music2 size={22} className="text-[#1DB954]" />
+                  </div>
+                )}
               </div>
               <div className="truncate min-w-0">
                 <p className="text-sm font-bold text-white truncate">
