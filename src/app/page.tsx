@@ -365,7 +365,23 @@ export default function Home() {
           } else if (eventType === "error") {
             streamError = payload?.message || payload?.error || "Stream error";
           }
-          // event "ping" tetap masuk log tapi tidak update progress
+        }
+      }
+
+      // Flush sisa buffer — tangani stream yang berakhir tanpa trailing \n\n
+      if (buffer.trim()) {
+        let eventType = "";
+        let dataStr = "";
+        for (const line of buffer.split("\n")) {
+          if (line.startsWith("event:")) eventType = line.slice(6).trim();
+          else if (line.startsWith("data:")) dataStr = line.slice(5).trim();
+        }
+        if (eventType && dataStr) {
+          try {
+            const payload = JSON.parse(dataStr);
+            if (eventType === "done") doneEvent = payload as DoneEventPayload;
+            else if (eventType === "error") streamError = payload?.message || payload?.error || "Stream error";
+          } catch { /* ignore */ }
         }
       }
 
@@ -388,9 +404,14 @@ export default function Home() {
             ? ` (skip ${skipped}, gagal ${failed})`
             : "";
         alert(`Sukses! ${downloaded} lagu masuk${extra} 🔥`);
+      } else if (!doneEvent) {
+        // Stream terputus sebelum done event tiba (proxy/timeout/koneksi putus)
+        // Track tetap mungkin sudah tersimpan di backend — refresh untuk cek
+        await fetchTracks();
+        alert("Stream terputus sebelum selesai. Lagu yang sempat didownload sudah ditambahkan ke library.");
       } else {
         alert(
-          "Gagal: " + (doneEvent?.error || doneEvent?.status || "Tidak ada event done"),
+          "Gagal: " + (doneEvent?.error || doneEvent?.status || "Status tidak dikenal"),
         );
       }
     } catch (err: any) {
