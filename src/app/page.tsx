@@ -28,6 +28,8 @@ import {
   X,
   Link,
   Upload,
+  FileText,
+  RotateCcw,
 } from "lucide-react";
 
 type Track = {
@@ -41,6 +43,8 @@ type Track = {
   durationSeconds?: number;
   duration?: number;
   playlistCover?: string | null;
+  has_lyrics?: boolean;
+  lyrics_synced?: boolean;
 };
 
 type TracksApiResponse = {
@@ -99,6 +103,11 @@ export default function Home() {
   const [coverUrlInput, setCoverUrlInput] = useState("");
   const [isUpdatingCover, setIsUpdatingCover] = useState(false);
   const coverFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [lyricsModal, setLyricsModal] = useState<{ open: boolean; track: Track | null }>({ open: false, track: null });
+  const [lyricsFile, setLyricsFile] = useState<File | null>(null);
+  const [isUploadingLyrics, setIsUploadingLyrics] = useState(false);
+  const [lyricsUploadMsg, setLyricsUploadMsg] = useState<string | null>(null);
+  const lyricsFileInputRef = useRef<HTMLInputElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const downloadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -110,6 +119,7 @@ export default function Home() {
     completed: "Selesai",
     skipped: "Skipped",
     failed: "Gagal",
+    lyrics: "Lirik",
   };
 
   const PHASE_COLORS: Record<string, string> = {
@@ -120,6 +130,7 @@ export default function Home() {
     completed: "text-[#1DB954]",
     skipped: "text-gray-400",
     failed: "text-red-400",
+    lyrics: "text-purple-400",
   };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -504,6 +515,107 @@ export default function Home() {
     setCoverFile(null);
     setCoverFilePreview(null);
     setCoverUrlInput("");
+  };
+
+  const openLyricsModal = (e: React.MouseEvent, track: Track) => {
+    e.stopPropagation();
+    setLyricsModal({ open: true, track });
+    setLyricsFile(null);
+    setLyricsUploadMsg(null);
+  };
+
+  const closeLyricsModal = () => {
+    setLyricsModal({ open: false, track: null });
+    setLyricsFile(null);
+    setLyricsUploadMsg(null);
+  };
+
+  const handleLyricsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLyricsFile(file);
+    setLyricsUploadMsg(null);
+  };
+
+  const handleUploadLyrics = async () => {
+    if (!lyricsModal.track || !lyricsFile) return;
+    const id = lyricsModal.track.id;
+    setIsUploadingLyrics(true);
+    setLyricsUploadMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", lyricsFile);
+      fd.append("language", "id");
+      const res = await fetch(`${API_BASE}/api/tracks/${id}/lyrics/upload`, {
+        method: "POST",
+        body: fd,
+      });
+      const json = await res.json();
+      if (res.ok) {
+        const kind = json.isSynced ? "synced" : "plain";
+        setLyricsUploadMsg(`Berhasil! Lirik ${kind} tersimpan.`);
+        setTracks((prev) =>
+          prev.map((t) =>
+            t.id === id
+              ? { ...t, has_lyrics: true, lyrics_synced: json.isSynced }
+              : t,
+          ),
+        );
+        setLyricsFile(null);
+      } else {
+        setLyricsUploadMsg(json.message || "Gagal upload lirik.");
+      }
+    } catch {
+      setLyricsUploadMsg("Error: gagal menghubungi server.");
+    } finally {
+      setIsUploadingLyrics(false);
+    }
+  };
+
+  const handleRefetchLyrics = async (e: React.MouseEvent, track: Track) => {
+    e.stopPropagation();
+    const id = track.id;
+    try {
+      const res = await fetch(`${API_BASE}/api/tracks/${id}/lyrics/fetch`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (res.ok) {
+        const synced = json.isSynced ?? false;
+        setTracks((prev) =>
+          prev.map((t) =>
+            t.id === id ? { ...t, has_lyrics: true, lyrics_synced: synced } : t,
+          ),
+        );
+        alert(`Lirik ditemukan (${synced ? "synced" : "plain"}).`);
+      } else {
+        alert(json.message || "Lirik tidak ditemukan.");
+      }
+    } catch {
+      alert("Error: gagal menghubungi server.");
+    }
+  };
+
+  const handleDeleteLyrics = async (e: React.MouseEvent, track: Track) => {
+    e.stopPropagation();
+    if (!confirm(`Hapus lirik "${track.trackTitle || track.title}"?`)) return;
+    const id = track.id;
+    try {
+      const res = await fetch(`${API_BASE}/api/tracks/${id}/lyrics`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setTracks((prev) =>
+          prev.map((t) =>
+            t.id === id ? { ...t, has_lyrics: false, lyrics_synced: false } : t,
+          ),
+        );
+      } else {
+        alert("Gagal hapus lirik.");
+      }
+    } catch {
+      alert("Error: gagal menghubungi server.");
+    }
   };
 
   const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1152,7 +1264,7 @@ export default function Home() {
 
             {/* LIBRARY TABLE */}
             <div className="rounded-2xl bg-white/[0.02] border border-white/[0.05] overflow-hidden backdrop-blur-sm">
-              <div className="grid grid-cols-[48px_1fr_80px_60px] gap-4 px-5 py-3 border-b border-white/[0.05] text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] bg-black/20">
+              <div className="grid grid-cols-[48px_1fr_80px_88px] gap-4 px-5 py-3 border-b border-white/[0.05] text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] bg-black/20">
                 <p className="text-center">#</p>
                 <p>Title</p>
                 <p className="text-right">
@@ -1206,7 +1318,7 @@ export default function Home() {
                     <div
                       key={track.id}
                       onClick={() => setCurrentTrack(track)}
-                      className={`grid grid-cols-[48px_1fr_80px_60px] gap-4 px-5 py-3 items-center transition-colors cursor-pointer border-b border-white/[0.03] last:border-b-0 group ${
+                      className={`grid grid-cols-[48px_1fr_80px_88px] gap-4 px-5 py-3 items-center transition-colors cursor-pointer border-b border-white/[0.03] last:border-b-0 group ${
                         isActive
                           ? "bg-[#1DB954]/[0.08]"
                           : "hover:bg-white/[0.03]"
@@ -1287,6 +1399,17 @@ export default function Home() {
                           className="p-2 rounded-lg text-zinc-400 hover:bg-[#1DB954]/15 hover:text-[#1DB954] transition-all"
                         >
                           <ImagePlus size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => openLyricsModal(e, track)}
+                          title={track.has_lyrics ? `Lirik (${track.lyrics_synced ? "synced" : "plain"}) — klik untuk upload ulang` : "Upload lirik"}
+                          className={`p-2 rounded-lg transition-all ${
+                            track.has_lyrics
+                              ? "text-purple-400 hover:bg-purple-500/15 hover:text-purple-300"
+                              : "text-zinc-400 hover:bg-purple-500/15 hover:text-purple-400"
+                          }`}
+                        >
+                          <FileText size={14} />
                         </button>
                         <button
                           onClick={(e) => handleDeleteTrack(e, track.id)}
@@ -1431,6 +1554,131 @@ export default function Home() {
             autoPlay
           />
         </footer>
+      )}
+
+      {/* LYRICS UPLOAD MODAL */}
+      {lyricsModal.open && lyricsModal.track && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={closeLyricsModal}
+        >
+          <div
+            className="w-full max-w-sm bg-[#111] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2">
+                <FileText size={16} className="text-purple-400" />
+                <h3 className="text-sm font-bold text-white">Lirik</h3>
+                {lyricsModal.track.has_lyrics && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    lyricsModal.track.lyrics_synced
+                      ? "bg-purple-500/20 text-purple-300"
+                      : "bg-zinc-700/50 text-zinc-400"
+                  }`}>
+                    {lyricsModal.track.lyrics_synced ? "Synced" : "Plain"}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={closeLyricsModal}
+                className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/[0.06] transition"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 flex flex-col gap-4">
+              {/* Track name */}
+              <p className="text-xs text-zinc-400 truncate">
+                <span className="text-zinc-500">Lagu: </span>
+                {lyricsModal.track.trackTitle || lyricsModal.track.title}
+              </p>
+
+              {/* Upload file */}
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Upload .lrc atau .txt</p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => lyricsFileInputRef.current?.click()}
+                    className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-zinc-300 hover:text-white transition"
+                  >
+                    <Upload size={13} />
+                    Pilih file
+                  </button>
+                  {lyricsFile && (
+                    <span className="text-[11px] text-purple-300 truncate max-w-[140px]">
+                      {lyricsFile.name}
+                    </span>
+                  )}
+                  <input
+                    ref={lyricsFileInputRef}
+                    type="file"
+                    accept=".lrc,.txt"
+                    className="hidden"
+                    onChange={handleLyricsFileChange}
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-600">
+                  .lrc = auto synced · .txt = plain · maks 512 KB
+                </p>
+              </div>
+
+              {/* Result message */}
+              {lyricsUploadMsg && (
+                <p className={`text-xs font-semibold ${
+                  lyricsUploadMsg.startsWith("Berhasil")
+                    ? "text-[#1DB954]"
+                    : "text-red-400"
+                }`}>
+                  {lyricsUploadMsg}
+                </p>
+              )}
+
+              {/* Submit upload */}
+              <button
+                onClick={handleUploadLyrics}
+                disabled={isUploadingLyrics || !lyricsFile}
+                className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isUploadingLyrics ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Upload size={14} />
+                )}
+                {isUploadingLyrics ? "Mengupload..." : "Upload Lirik"}
+              </button>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-white/[0.06]" />
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest">atau</span>
+                <div className="flex-1 h-px bg-white/[0.06]" />
+              </div>
+
+              {/* Auto-fetch & delete actions */}
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => { handleRefetchLyrics(e, lyricsModal.track!); closeLyricsModal(); }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] text-zinc-300 hover:text-white text-xs font-semibold transition"
+                >
+                  <RotateCcw size={13} />
+                  Cari ulang
+                </button>
+                {lyricsModal.track.has_lyrics && (
+                  <button
+                    onClick={(e) => { handleDeleteLyrics(e, lyricsModal.track!); closeLyricsModal(); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-xs font-semibold transition"
+                  >
+                    <Trash2 size={13} />
+                    Hapus lirik
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* COVER UPDATE MODAL */}
